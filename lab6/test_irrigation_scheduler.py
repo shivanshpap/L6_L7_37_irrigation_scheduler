@@ -3,76 +3,174 @@ from irrigation_scheduler import should_irrigate, water_volume, schedule
 
 
 # ==============================================================================
-# Code Coverage (Statement Coverage) Test Suite
+# Branch Coverage Test Suite
 # Target Application: irrigation_scheduler.py
-# Objective: Achieve at least 90% (100%) statement code coverage.
+# Objective: Achieve 100% Branch Coverage and 100% Statement Coverage
+#            by thoroughly covering all decision paths, boundary conditions,
+#            and loop edge conditions.
 # ==============================================================================
 
-def test_wet_soil_no_irrigation():
-    """Covers lines 1-3: should_irrigate returns False when moisture >= 60."""
-    assert should_irrigate(70, 0, "seedling") is False
+# ------------------------------------------------------------------------------
+# 1. Tests for should_irrigate(moisture, rain_mm, stage)
+# ------------------------------------------------------------------------------
+
+def test_should_irrigate_moisture_ge_60_true():
+    """Branch: moisture >= 60 evaluates to True (boundary at 60, above at 75)."""
+    assert should_irrigate(60, 0, "seedling") is False
+    assert should_irrigate(75, 0, "seedling") is False
 
 
-def test_heavy_rain_no_irrigation():
-    """Covers lines 4-5: should_irrigate returns False when rain_mm >= 10."""
+def test_should_irrigate_moisture_ge_60_false():
+    """Branch: moisture >= 60 evaluates to False (boundary at 59, proceeds to rain check)."""
+    assert should_irrigate(59, 12, "seedling") is False
+
+
+def test_should_irrigate_rain_ge_10_true():
+    """Branch: rain_mm >= 10 evaluates to True (boundary at 10, above at 15)."""
+    assert should_irrigate(50, 10, "seedling") is False
     assert should_irrigate(50, 15, "seedling") is False
 
 
-def test_seedling_needs_irrigation():
-    """Covers lines 6-8: should_irrigate returns True for seedling when moisture < 45."""
-    assert should_irrigate(40, 2, "seedling") is True
+def test_should_irrigate_rain_ge_10_false():
+    """Branch: rain_mm >= 10 evaluates to False (boundary at 9, proceeds to stage check)."""
+    assert should_irrigate(40, 9, "seedling") is True
 
 
-def test_seedling_dry_enough_no_irrigation():
-    """Covers line 9: should_irrigate returns False for seedling when moisture >= 45."""
-    assert should_irrigate(50, 2, "seedling") is False
+def test_should_irrigate_stage_seedling_moisture_lt_45_true():
+    """Stage == 'seedling' (True), moisture < 45 (True: boundary 44, nominal 30)."""
+    assert should_irrigate(44, 2, "seedling") is True
+    assert should_irrigate(30, 0, "seedling") is True
 
 
-def test_flowering_needs_irrigation():
-    """Covers lines 10-11: should_irrigate returns True for flowering when moisture < 55."""
-    assert should_irrigate(50, 2, "flowering") is True
+def test_should_irrigate_stage_seedling_moisture_lt_45_false():
+    """Stage == 'seedling' (True), moisture < 45 (False: boundary 45, nominal 50)."""
+    assert should_irrigate(45, 2, "seedling") is False
+    assert should_irrigate(50, 0, "seedling") is False
 
 
-def test_other_stage_moderate_rain():
-    """Covers lines 12-13: should_irrigate returns False for other stages when rain_mm >= 5."""
-    assert should_irrigate(35, 8, "vegetative") is False
+def test_should_irrigate_stage_flowering_true():
+    """Stage == 'flowering' (True), moisture < 55 (True: boundary 54, nominal 40)."""
+    assert should_irrigate(54, 2, "flowering") is True
+    assert should_irrigate(40, 0, "flowering") is True
 
 
-def test_other_stage_needs_irrigation():
-    """Covers line 14: should_irrigate returns True for other stages when moisture < 40."""
-    assert should_irrigate(35, 2, "vegetative") is True
+def test_should_irrigate_stage_flowering_false():
+    """Stage == 'flowering' (True), moisture < 55 (False: boundary 55, nominal 58)."""
+    assert should_irrigate(55, 2, "flowering") is False
+    assert should_irrigate(58, 0, "flowering") is False
 
 
-def test_invalid_area_volume():
-    """Covers lines 18-19: water_volume raises ValueError when area_m2 <= 0."""
+def test_should_irrigate_other_stage_rain_ge_5_true():
+    """Other stage (vegetative/fruiting), rain_mm >= 5 (True: boundary 5, nominal 8)."""
+    assert should_irrigate(30, 5, "vegetative") is False
+    assert should_irrigate(30, 8, "fruiting") is False
+
+
+def test_should_irrigate_other_stage_moisture_lt_40_true():
+    """Other stage, rain_mm < 5, moisture < 40 (True: boundary 39, nominal 25)."""
+    assert should_irrigate(39, 4, "vegetative") is True
+    assert should_irrigate(25, 0, "maturation") is True
+
+
+def test_should_irrigate_other_stage_moisture_lt_40_false():
+    """Other stage, rain_mm < 5, moisture < 40 (False: boundary 40, nominal 50)."""
+    assert should_irrigate(40, 4, "vegetative") is False
+    assert should_irrigate(50, 2, "maturation") is False
+
+
+# ------------------------------------------------------------------------------
+# 2. Tests for water_volume(area_m2, stage, temp_c)
+# ------------------------------------------------------------------------------
+
+def test_water_volume_invalid_area_zero_and_negative():
+    """Branch: area_m2 <= 0 evaluates to True (boundary 0, negative -10) -> raises ValueError."""
     with pytest.raises(ValueError, match="invalid area"):
-        water_volume(0, "seedling", 20)
+        water_volume(0, "seedling", 25)
+    with pytest.raises(ValueError, match="invalid area"):
+        water_volume(-10, "seedling", 25)
 
 
-def test_seedling_volume_high_temp():
-    """Covers lines 20-21, 26-27, 30: seedling stage with temp_c > 35 (1.5x multiplier)."""
-    assert water_volume(10, "seedling", 40) == 30.0
+def test_water_volume_seedling_stage():
+    """Branch: stage == 'seedling' -> True (base litres = 2)."""
+    assert water_volume(10, "seedling", 25) == 20.0
 
 
-def test_flowering_volume_low_temp():
-    """Covers lines 22-23, 28-30: flowering stage with temp_c < 10 (0.5x multiplier)."""
+def test_water_volume_flowering_stage():
+    """Branch: stage == 'flowering' -> True (base litres = 5)."""
+    assert water_volume(10, "flowering", 25) == 50.0
+
+
+def test_water_volume_other_stage():
+    """Branch: stage not seedling or flowering -> True (base litres = 4)."""
+    assert water_volume(10, "vegetative", 25) == 40.0
+    assert water_volume(10, "harvest", 25) == 40.0
+
+
+def test_water_volume_temp_gt_35():
+    """Branch: temp_c > 35 -> True (1.5x multiplier, boundary 36, nominal 40)."""
+    assert water_volume(10, "seedling", 36) == 30.0
+    assert water_volume(10, "flowering", 40) == 75.0
+
+
+def test_water_volume_temp_lt_10():
+    """Branch: temp_c < 10 -> True (0.5x multiplier, boundary 9, nominal 5)."""
+    assert water_volume(10, "seedling", 9) == 10.0
     assert water_volume(10, "flowering", 5) == 25.0
 
 
-def test_other_stage_volume():
-    """Covers lines 24-25, 26-27, 30: other stage (vegetative) with temp_c > 35."""
-    assert water_volume(10, "vegetative", 40) == 60.0
-
-
-def test_schedule_execution():
+def test_water_volume_temp_normal_boundaries():
     """
-    Covers lines 34-43: schedule execution covering continue (lines 36-37),
-    water_volume computation (line 38), break (lines 39-40), budget update (line 41),
-    and plan append (line 42).
+    Branch: 10 <= temp_c <= 35 evaluates to True (neither temp > 35 nor temp < 10 branch taken).
+    Tests lower boundary (10), upper boundary (35), and intermediate (20).
+    """
+    assert water_volume(10, "seedling", 10) == 20.0
+    assert water_volume(10, "seedling", 35) == 20.0
+    assert water_volume(10, "seedling", 20) == 20.0
+
+
+# ------------------------------------------------------------------------------
+# 3. Tests for schedule(zones, budget)
+# ------------------------------------------------------------------------------
+
+def test_schedule_empty_zones():
+    """Branch: for-loop does not execute when zones list is empty -> returns []."""
+    assert schedule([], 100) == []
+
+
+def test_schedule_all_zones_skip_irrigation():
+    """Branch: loop executes, should_irrigate is False for all zones -> continue (line 37)."""
+    zones = [
+        ("Z1", 10, 75, 0, "seedling", 20),
+        ("Z2", 10, 50, 15, "flowering", 20),
+    ]
+    assert schedule(zones, 100) == []
+
+
+def test_schedule_all_zones_fit_budget():
+    """
+    Branch: loop executes, all zones fit within budget and plan finishes naturally without break.
+    Exercises branch 35->43 (loop normal completion).
     """
     zones = [
-        ("ZoneA", 10, 70, 0, "seedling", 40),   # should_irrigate is False -> line 37 (continue)
-        ("ZoneB", 10, 40, 0, "seedling", 40),   # needs 30L, fits in budget 50L -> lines 41-42
-        ("ZoneC", 10, 40, 0, "flowering", 40),  # needs 75L, budget is 20L -> line 40 (break)
+        ("ZoneA", 10, 30, 0, "seedling", 20),    # need = 20, remaining budget = 80
+        ("ZoneB", 10, 30, 0, "vegetative", 20),  # need = 40, remaining budget = 40
     ]
-    assert schedule(zones, 50) == ["ZoneB"]
+    assert schedule(zones, 100) == ["ZoneA", "ZoneB"]
+
+
+def test_schedule_budget_exhausted_break():
+    """Branch: need > budget evaluates to True -> break statement (line 40)."""
+    zones = [
+        ("ZoneA", 10, 30, 0, "seedling", 20),    # need = 20, remaining budget = 30
+        ("ZoneB", 10, 30, 0, "flowering", 20),   # need = 50, > 30 budget -> break
+        ("ZoneC", 10, 30, 0, "seedling", 20),    # unreachable due to break
+    ]
+    assert schedule(zones, 50) == ["ZoneA"]
+
+
+def test_schedule_exact_budget_match():
+    """Edge case: need == budget (need > budget evaluates to False, remaining budget becomes 0)."""
+    zones = [
+        ("ZoneExact", 10, 30, 0, "seedling", 20),  # need = 20, budget = 20 -> remaining = 0
+    ]
+    assert schedule(zones, 20) == ["ZoneExact"]
